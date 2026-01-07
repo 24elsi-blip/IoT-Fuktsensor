@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IoT Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+  <style>
+    :root{
+      --bg0: #0a1116;
+      --bg1: #0f1f29;
+      --bg2: #142a35;
+      --card: rgba(16, 27, 35, 0.88);
+      --card-border: rgba(148, 163, 184, 0.22);
+      --text: #ecf4ff;
+      --muted: #9fb0c4;
+      --teal: #18b7a0;
+      --cyan: #38bdf8;
+      --lime: #84cc16;
+      --shadow: 0 26px 60px rgba(5, 12, 18, 0.6);
+    }
+    *{ box-sizing: border-box; }
+    html, body{ height: 100%; }
+    body{
+      margin: 0;
+      font-family: "Sora", "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(900px 420px at 8% -10%, rgba(24,183,160,0.28), transparent 60%),
+        radial-gradient(800px 460px at 90% 10%, rgba(56,189,248,0.2), transparent 55%),
+        linear-gradient(150deg, var(--bg2), var(--bg0) 60%);
+      padding: 28px 18px 40px;
+    }
+    body::before{
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        repeating-linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.04) 1px, transparent 1px, transparent 90px),
+        repeating-linear-gradient(25deg, rgba(255,255,255,0.03), rgba(255,255,255,0.03) 1px, transparent 1px, transparent 70px);
+      opacity: 0.22;
+      pointer-events: none;
+    }
+    main{
+      width: min(1200px, 100%);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      position: relative;
+      z-index: 1;
+      animation: fadeUp 0.5s ease-out;
+    }
+    header{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    h1{
+      margin: 0;
+      font-size: clamp(1.9rem, 3.2vw, 2.8rem);
+      letter-spacing: 0.4px;
+    }
+    .dry-banner{
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      padding: 14px 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(132,204,22,0.45);
+      background: linear-gradient(140deg, rgba(12, 20, 26, 0.92), rgba(11, 22, 16, 0.85));
+      box-shadow: 0 22px 40px rgba(132,204,22,0.22);
+    }
+    .dry-label{
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .dry-main{
+      font-size: clamp(1.7rem, 2.4vw, 2.2rem);
+      font-weight: 700;
+      color: #f8fafc;
+    }
+    .dry-sub{
+      font-size: 1rem;
+      color: rgba(132,204,22,0.95);
+    }
+    .grid{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+    }
+    .panel{
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 16px 16px 18px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.18s ease, border-color 0.18s ease;
+    }
+    .panel::after{
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(24,183,160,0.16), transparent 55%);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+    .panel:hover{
+      transform: translateY(-3px);
+      border-color: rgba(24,183,160,0.6);
+    }
+    .panel:hover::after{ opacity: 1; }
+    .panel.pred::after{ background: linear-gradient(120deg, rgba(132,204,22,0.22), transparent 55%); }
+    .panel.pred:hover{ border-color: rgba(132,204,22,0.6); }
+    .panel-head{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      position: relative;
+      z-index: 2;
+    }
+    .panel-title{
+      font-size: 1.05rem;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+    .btn{
+      text-decoration: none;
+      color: #051117;
+      background: linear-gradient(135deg, var(--teal), var(--cyan));
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      box-shadow: 0 10px 24px rgba(24,183,160,0.35);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      position: relative;
+      z-index: 3;
+    }
+    .btn:hover{
+      transform: translateY(-1px);
+      box-shadow: 0 12px 28px rgba(24,183,160,0.5);
+    }
+    .pred .btn{
+      background: linear-gradient(135deg, var(--lime), #eab308);
+      box-shadow: 0 10px 24px rgba(132,204,22,0.35);
+    }
+    .pred .btn:hover{ box-shadow: 0 12px 28px rgba(132,204,22,0.5); }
+    .chart-wrap{
+      background: rgba(8, 14, 19, 0.6);
+      border-radius: 14px;
+      border: 1px solid rgba(148,163,184,0.14);
+      padding: 10px;
+      height: clamp(220px, 34vh, 360px);
+      position: relative;
+      z-index: 1;
+    }
+    canvas{ width: 100% !important; height: 100% !important; }
+    .panel-meta{
+      color: var(--muted);
+      font-size: 0.85rem;
+      min-height: 1.2em;
+    }
+    .panel.pred .panel-meta{
+      display: none;
+    }
+    @keyframes fadeUp{
+      from{ opacity: 0; transform: translateY(10px); }
+      to{ opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 700px){
+      header{ align-items: flex-start; }
+      .dry-banner{ align-items: flex-start; }
+    }
+    @media (prefers-reduced-motion: reduce){
+      main, .panel, .btn{ animation: none; transition: none; }
+      .panel:hover{ transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>IoT Hub</h1>
+      <div class="dry-banner">
+        <div class="dry-label">Dry estimate</div>
+        <div class="dry-main" id="dryMain">--</div>
+        <div class="dry-sub" id="drySub"></div>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="panel data">
+        <div class="panel-head">
+          <div class="panel-title">Sensor Data</div>
+          <a class="btn" href="graf.php">Open</a>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="dataChart"></canvas>
+        </div>
+        <div class="panel-meta" id="dataMeta"></div>
+      </article>
+
+      <article class="panel pred">
+        <div class="panel-head">
+          <div class="panel-title">Prediction</div>
+          <a class="btn" href="model_view.php">Open</a>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="predChart"></canvas>
+        </div>
+        <div class="panel-meta" id="predMeta"></div>
+      </article>
+    </section>
+  </main>
+
+<script>
+  const DRY_RAW = 763.19;
+  const WET_RAW = 815;
+  const DATA_RANGE_DAYS = 45;
+  const DATA_BUCKET = '2h';
+  const SETTLE_HOURS = 1;
+
+  let dataChart = null;
+  let predChart = null;
+
+  function clamp(x, lo, hi){ return Math.max(lo, Math.min(hi, x)); }
+
+  function rawToPercent(raw){
+    const pct = ((raw - DRY_RAW) / (WET_RAW - DRY_RAW)) * 100;
+    return clamp(pct, 0, 100);
+  }
+
+  function ema(values, alpha = 0.18){
+    if(!values || values.length === 0) return [];
+    let s = values[0];
+    const out = [s];
+    for(let i = 1; i < values.length; i++){
+      s = alpha * values[i] + (1 - alpha) * s;
+      out.push(s);
+    }
+    return out;
+  }
+
+  function movingAverage(values, window){
+    const n = values.length;
+    if(n === 0) return [];
+    const w = Math.max(3, window | 1);
+    const half = Math.floor(w / 2);
+    const out = new Array(n);
+    for(let i = 0; i < n; i++){
+      const lo = Math.max(0, i - half);
+      const hi = Math.min(n - 1, i + half);
+      let sum = 0;
+      for(let j = lo; j <= hi; j++) sum += values[j];
+      out[i] = sum / (hi - lo + 1);
+    }
+    return out;
+  }
+
+  function rollingMedian(values, window){
+    const n = values.length;
+    if(n === 0) return [];
+    const w = Math.max(3, window | 1);
+    const half = Math.floor(w / 2);
+    const out = new Array(n);
+    for(let i = 0; i < n; i++){
+      const lo = Math.max(0, i - half);
+      const hi = Math.min(n - 1, i + half);
+      const slice = [];
+      for(let j = lo; j <= hi; j++) slice.push(values[j]);
+      slice.sort((a, b) => a - b);
+      out[i] = slice[Math.floor(slice.length / 2)];
+    }
+    return out;
+  }
+
+  function median(values){
+    if(!values || values.length === 0) return null;
+    const arr = values.slice().sort((a, b) => a - b);
+    const mid = Math.floor(arr.length / 2);
+    return (arr.length % 2) ? arr[mid] : (arr[mid - 1] + arr[mid]) / 2;
+  }
+
+  function detectLastWatering(points, values){
+    if(points.length < 20) return null;
+    const sm = movingAverage(rollingMedian(values, 31), 31);
+    const minV = Math.min(...sm);
+    const maxV = Math.max(...sm);
+    if(!isFinite(minV) || !isFinite(maxV) || (maxV - minV) < 6) return null;
+
+    const high = minV + (maxV - minV) * 0.78;
+    const low = minV + (maxV - minV) * 0.45;
+    const cooldownMs = 6 * 3600 * 1000;
+
+    let lastMs = null;
+    for(let i = 1; i < sm.length; i++){
+      if(sm[i] >= high && sm[i - 1] < high){
+        const start = Math.max(0, i - 8);
+        const hadLow = sm.slice(start, i).some(v => v < low);
+        if(!hadLow) continue;
+        const t = points[i].x;
+        if(lastMs && (t - lastMs) < cooldownMs) continue;
+        lastMs = t;
+      }
+    }
+    return lastMs;
+  }
+
+  function downsample(points, maxPoints){
+    if(points.length <= maxPoints) return points;
+    const step = Math.ceil(points.length / maxPoints);
+    return points.filter((_, i) => i % step === 0);
+  }
+
+  function parseSqlTs(sqlTs){
+    if(!sqlTs) return NaN;
+    const iso = sqlTs.replace(' ', 'T');
+    const dt = luxon.DateTime.fromISO(iso);
+    return dt.isValid ? dt.toMillis() : NaN;
+  }
+
+  function fmtTs(ms){
+    return luxon.DateTime.fromMillis(ms).toFormat('yyyy-LL-dd HH:mm');
+  }
+
+  function setDryBanner(main, sub){
+    const mainEl = document.getElementById('dryMain');
+    const subEl = document.getElementById('drySub');
+    if(mainEl) mainEl.textContent = main || '--';
+    if(subEl){
+      subEl.textContent = sub || '';
+      subEl.style.display = sub ? 'block' : 'none';
+    }
+  }
+
+  function setStatus(id, msg){
+    const el = document.getElementById(id);
+    if(!el) return;
+    if(msg){
+      el.textContent = msg;
+      el.style.display = 'block';
+    }else{
+      el.textContent = '';
+      el.style.display = 'none';
+    }
+  }
+
+  async function loadDataChart(){
+    try{
+      const res = await fetch('api.php?range=' + DATA_RANGE_DAYS + 'd&bucket=' + DATA_BUCKET, { cache: 'no-store' });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const json = await res.json();
+      if(!json.success) throw new Error(json.error || 'data error');
+
+      let rows = json.data || [];
+      if(json.mode === 'raw') rows = rows.slice().reverse();
+
+      const points = rows
+        .map(r => ({ x: parseSqlTs(r.created_at), y: rawToPercent(Number(r.fukt)) }))
+        .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y));
+
+      const allValues = points.map(p => p.y);
+      const detectedMs = detectLastWatering(points, allValues);
+      const candidateMs = [detectedMs, waterStartMs].filter(Number.isFinite).sort((a, b) => a - b).pop();
+      const settleMs = Number.isFinite(candidateMs) ? (candidateMs + SETTLE_HOURS * 3600 * 1000) : null;
+
+      let filtered = points;
+      if(Number.isFinite(settleMs)){
+        filtered = points.filter(p => p.x >= settleMs);
+        setStatus('dataMeta', 'Since last watering: ' + fmtTs(candidateMs));
+      }else{
+        setStatus('dataMeta', 'Waiting for watering event');
+      }
+
+      const values = filtered.map(p => p.y);
+      const win = Math.min(201, Math.max(31, Math.floor(values.length / 8) * 2 + 1));
+      const med = rollingMedian(values, win);
+      const avg = movingAverage(med, Math.min(181, Math.max(31, Math.floor(values.length / 10) * 2 + 1)));
+      const smooth = ema(avg, 0.06);
+      const smooth2 = ema(smooth, 0.04);
+      let smoothPoints = filtered.map((p, i) => ({ x: p.x, y: smooth2[i] }));
+      smoothPoints = downsample(smoothPoints, 260);
+      const yVals = smoothPoints.map(p => p.y).filter(v => Number.isFinite(v));
+      const yMin = Math.min(...yVals);
+      const yMax = Math.max(...yVals);
+      const pad = Math.max(1.5, (yMax - yMin) * 0.12);
+      const yAxisMin = Math.max(0, yMin - pad);
+      const yAxisMax = Math.min(100, yMax + pad);
+
+      if(dataChart) dataChart.destroy();
+      const ctx = document.getElementById('dataChart').getContext('2d');
+      dataChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: [
+            {
+              label: 'Moisture',
+              data: smoothPoints,
+              fill: true,
+              backgroundColor: 'rgba(24,183,160,0.18)',
+              borderColor: 'rgba(24,183,160,0.95)',
+              borderWidth: 2,
+              tension: 0.5,
+              cubicInterpolationMode: 'monotone',
+              pointRadius: 0,
+              pointHitRadius: 8
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 250 },
+          scales: {
+            x: {
+              type: 'time',
+              time: {
+                unit: 'day',
+                displayFormats: { day: 'LLL d', hour: 'LLL d HH:mm' }
+              },
+              grid: { color: 'rgba(148,163,184,0.12)' },
+              ticks: { color: 'rgba(159,176,196,0.9)', maxTicksLimit: 7, maxRotation: 0 }
+            },
+            y: {
+              min: yAxisMin,
+              max: yAxisMax,
+              grid: { color: 'rgba(148,163,184,0.12)' },
+              ticks: { color: 'rgba(159,176,196,0.9)', callback: v => v + '%' }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              displayColors: false,
+              callbacks: {
+                title: items => 'Time: ' + luxon.DateTime.fromMillis(items[0].parsed.x).toFormat('yyyy-LL-dd HH:mm'),
+                label: ctx => 'Moisture: ' + ctx.parsed.y.toFixed(1) + '%'
+              }
+            }
+          }
+        }
+      });
+    }catch(err){
+      setStatus('dataMeta', 'Data error: ' + err.message);
+    }
+  }
+
+  let waterStartMs = null;
+
+  const nowLinePlugin = {
+    id: 'nowLine',
+    afterDraw(chart){
+      const {ctx, chartArea, scales} = chart;
+      if(!chartArea) return;
+      const x = scales.x.getPixelForValue(Date.now());
+      if(!isFinite(x)) return;
+      ctx.save();
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6,6]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+      ctx.beginPath();
+      ctx.moveTo(x, chartArea.top);
+      ctx.lineTo(x, chartArea.bottom);
+      ctx.stroke();
+      ctx.restore();
+    }
+  };
+
+  async function loadPredictionChart(){
+    try{
+      const res = await fetch('model_api.php', { cache: 'no-store' });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const text = await res.text();
+      let data;
+      try{ data = JSON.parse(text); }
+      catch(e){ throw new Error('bad JSON'); }
+      if(data.error) throw new Error(data.error);
+
+      waterStartMs = parseSqlTs(data.start);
+      const pts = (data.model || [])
+        .map(p => ({ x: parseSqlTs(p.t), y: p.y }))
+        .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y));
+
+      const nowMs = Date.now();
+      const past = pts.filter(p => p.x <= nowMs);
+      const future = pts.filter(p => p.x >= nowMs);
+
+      if(predChart) predChart.destroy();
+      const ctx = document.getElementById('predChart').getContext('2d');
+      predChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: [
+            {
+              label: 'Past',
+              data: past,
+              borderColor: '#84cc16',
+              borderWidth: 2.5,
+              pointRadius: 0,
+              tension: 0.25,
+              cubicInterpolationMode: 'monotone'
+            },
+            {
+              label: 'Future',
+              data: future,
+              borderColor: 'rgba(132,204,22,0.7)',
+              borderWidth: 2.5,
+              pointRadius: 0,
+              borderDash: [7,7],
+              tension: 0.25,
+              cubicInterpolationMode: 'monotone'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 250 },
+          interaction: { mode: 'nearest', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              displayColors: false,
+              callbacks: {
+                title(items){
+                  const ms = items[0].parsed.x;
+                  return luxon.DateTime.fromMillis(ms).toFormat('yyyy-LL-dd HH:mm');
+                },
+                label(item){
+                  return 'Moisture: ' + item.parsed.y.toFixed(1);
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'time',
+              time: {
+                unit: 'day',
+                displayFormats: { day: 'LLL d', hour: 'LLL d HH:mm' }
+              },
+              grid: { color: 'rgba(148,163,184,0.12)' },
+              ticks: { color: 'rgba(159,176,196,0.9)', maxRotation: 0, maxTicksLimit: 7 }
+            },
+            y: {
+              grid: { color: 'rgba(148,163,184,0.12)' },
+              ticks: { color: 'rgba(159,176,196,0.9)' }
+            }
+          }
+        },
+        plugins: [nowLinePlugin]
+      });
+      if(data.is_dry_now){
+        setDryBanner('Dry now', '');
+        setStatus('predMeta', '');
+      }else if(data.dry_time){
+        const dryMs = parseSqlTs(data.dry_time);
+        const hrs = typeof data.hours_to_dry === 'number' ? data.hours_to_dry.toFixed(1) : '?';
+        setDryBanner('Dry in ' + hrs + 'h', fmtTs(dryMs));
+        setStatus('predMeta', '');
+      }else{
+        setDryBanner('Dry estimate', 'Unknown');
+        setStatus('predMeta', '');
+      }
+    }catch(err){
+      setDryBanner('Dry estimate', 'Unavailable');
+      setStatus('predMeta', 'Prediction error: ' + err.message);
+    }
+  }
+
+  async function init(){
+    try{ await loadPredictionChart(); } catch(e){ setStatus('predMeta', e.message); }
+    try{ await loadDataChart(); } catch(e){ setStatus('dataMeta', e.message); }
+  }
+
+  init();
+</script>
+</body>
+</html>
