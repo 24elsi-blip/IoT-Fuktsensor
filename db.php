@@ -2,9 +2,9 @@
 // db.php – anslutning till databasen
 
 $host   = 'localhost';         // ofta 'localhost'
-$db     = '24elsi';       // t.ex. '24elsi'
-$user   = '24elsi';     // t.ex. '24elsi_user'
-$pass   = 'Vesslan33!';        // t.ex. 'hemligt_lösen';
+$db     = '24abcd';       // DATABAS NAMNET HÄR (phpmyadmin använde jag)
+$user   = '24abcd';     // ANVÄNDARNAMNET TILL DATABAS HÄR
+$pass   = 'DITTLÖSENORD';        // Lösernord till databas här
 
 // Namn på tabell där vi lagrar fukt
 $table  = 'fuktdata';          // skapa denna tabell i phpMyAdmin
@@ -33,3 +33,4 @@ CREATE TABLE `fuktdata` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 */
+
